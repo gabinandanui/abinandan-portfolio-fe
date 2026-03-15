@@ -44,7 +44,7 @@ export default function Hero({ data }) {
                     className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full border border-white/10 bg-white/5 text-sm text-gray-400"
                 >
                     <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    AI Accelerated Developer
+                    AI Accelerated Frontend Developer
                 </motion.div>
 
                 {/* Headline */}
