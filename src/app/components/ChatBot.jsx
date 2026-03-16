@@ -1,0 +1,239 @@
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, X, User, Loader2, Sparkles, Briefcase, Code, MapPin, Activity, Shield, Lightbulb } from 'lucide-react';
+
+const SUGGESTED_QUESTIONS = [
+  "Core Expertise & Impact?",
+  "Technical Architecture?",
+  "Key Project Outcomes?",
+  "Availability & Contact?"
+];
+
+const ChatBot = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: "Welcome. I have prepared a comprehensive briefing on Abinandan's professional trajectory and project impact. How may I assist your evaluation today?" }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleSend = async (text) => {
+    const messageText = text || input;
+    if (!messageText.trim()) return;
+    if (!text) setInput('');
+
+    const newMessages = [...messages, { role: 'user', content: messageText }];
+    setMessages(newMessages);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.content || data.error }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I'm having trouble connecting right now. Please try again later." }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <>
+      {/* THE SIDEBAR DOSSIER CONSOLE */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ x: '100%', opacity: 0.5 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0.5 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 200 }}
+            className="fixed top-0 right-0 h-full w-full max-w-[500px] z-[200] bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden"
+          >
+            {/* DOSSIER HEADER: ANALYTIC GRID */}
+            <div className="p-8 pb-0 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                    <Shield size={22} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.4em]">Career Agent</h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center transition-all group border border-white/5"
+                >
+                  <X size={20} className="text-white/20 group-hover:text-white" />
+                </button>
+              </div>
+
+              {/* QUICK INSIGHTS BAR */}
+              <div className="grid grid-cols-2 gap-4 pb-8">
+                {[
+                  { icon: Briefcase, label: "Experience", value: "11 Years of IT" },
+                  { icon: Code, label: "Core Stack", value: "FE - 7 Years" },
+                  { icon: Code, label: "Core Skill", value: "Javascript - 7 Years" },
+                  { icon: MapPin, label: "Location", value: "Chennai, IN" },
+                  { icon: Activity, label: "Focus", value: "React/Nextjs" },
+                  { icon: Lightbulb, label: "Interest", value: "AI Accelerated Development" }
+                ].map((stat, i) => (
+                  <div key={i} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                    <div className="flex items-center gap-2 mb-1.5 opacity-30">
+                      <stat.icon size={12} className="text-white" />
+                      <span className="text-[8px] font-black uppercase tracking-widest">{stat.label}</span>
+                    </div>
+                    <p className="text-xs font-bold text-white tracking-wide">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* TRANSCRIPT AREA */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar bg-gradient-to-b from-transparent to-indigo-500/5">
+              {messages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`group flex flex-col gap-4 max-w-[92%] ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-[1px] ${m.role === 'user' ? 'bg-indigo-500/40' : 'bg-white/10'}`} />
+                      <p className="text-[9px] text-white/20 uppercase tracking-[0.4em] font-black group-hover:text-indigo-400 transition-colors">
+                        {m.role === 'user' ? 'Dialogue_Request' : 'Liaison_Response'}
+                      </p>
+                    </div>
+
+                    <div className={`text-[14px] leading-loose whitespace-pre-wrap relative ${m.role === 'user'
+                      ? 'text-white border-r-2 border-indigo-500/40 pr-6 text-right'
+                      : 'text-zinc-300 border-l-2 border-white/10 pl-6 text-left'
+                      }`}>
+                      {m.role === 'assistant' ? (
+                        <div className="space-y-4">
+                          {m.content.split('\n').map((line, idx) => {
+                            if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+                              return (
+                                <div key={idx} className="flex gap-3 pl-1">
+                                  <span className="text-indigo-500 mt-1.5">•</span>
+                                  <span dangerouslySetInnerHTML={{
+                                    __html: line.trim().substring(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                  }} />
+                                </div>
+                              );
+                            }
+                            return (
+                              <p key={idx} dangerouslySetInnerHTML={{
+                                __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              }} />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        m.content
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex items-center gap-4 pl-6 border-l-2 border-white/10 py-2">
+                  <Loader2 size={16} className="text-indigo-400 animate-spin" />
+                  <p className="text-[10px] text-indigo-400 uppercase tracking-[0.4em] font-black animate-pulse">Accessing Experience Archive...</p>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* BRIDGE INPUT DECK */}
+            <div className="p-8 bg-black/40 border-t border-white/5">
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+                className="relative group"
+              >
+                <div className="absolute inset-x-0 -top-px h-[1px] bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent group-focus-within:opacity-100 opacity-0 transition-opacity" />
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Inquire further..."
+                  className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-5 text-sm text-white focus:outline-none focus:bg-white/[0.06] transition-all font-sans placeholder:text-zinc-800"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !input.trim()}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-500 disabled:opacity-20 transition-all shadow-[0_10px_30px_rgba(79,70,229,0.3)]"
+                >
+                  <Send size={16} />
+                </button>
+              </form>
+              <div className="mt-6 flex flex-wrap justify-center gap-4">
+                {SUGGESTED_QUESTIONS.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSend(q)}
+                    className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] hover:text-white transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* THE FLOATING RIGHT TRIGGER */}
+      {!isOpen && (
+        <motion.button
+          initial={{ x: 50, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          whileHover={{ x: -10 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-10 right-10 z-[101] group flex flex-col items-end"
+        >
+          {/* Ambient Glow */}
+          <div className="absolute -inset-10 bg-indigo-500/10 blur-[50px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+          <div className="relative bg-zinc-950 border border-white/10 rounded-full px-6 py-4 flex items-center gap-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center gap-3 pr-6 border-r border-white/10">
+              <div className="relative">
+                <motion.div
+                  animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }}
+                  transition={{ repeat: Infinity, duration: 2.5 }}
+                  className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
+                />
+              </div>
+              <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em]">Online</span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] group-hover:text-indigo-400 transition-colors italic">Career Agent</p>
+              <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                <Sparkles size={14} />
+              </div>
+            </div>
+          </div>
+        </motion.button>
+      )}
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 20px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+    </>
+  );
+};
+
+export default ChatBot;

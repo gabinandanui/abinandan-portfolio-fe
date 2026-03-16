@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Navigation from './components/Navigation';
+import ChatBot from './components/ChatBot';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,9 +25,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>
+      <body className="antialiased">
         <Navigation />
         <main>{children}</main>
+        <ChatBot />
       </body>
     </html>
   );
