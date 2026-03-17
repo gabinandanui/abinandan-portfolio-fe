@@ -21,8 +21,27 @@ const ChatBot = () => {
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    });
   };
+
+  // Handle initial open scroll
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [isOpen]);
+
+  // Handle user-initiated scroll (typing or sending)
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    // Only auto-scroll if user is typing OR the last message was from the user
+    // This allows the response to "stay" and let the user scroll manually
+    if (input || lastMessage?.role === 'user') {
+      scrollToBottom();
+    }
+  }, [messages, input]);
 
   const handleSend = async (text) => {
     const messageText = text || input;
@@ -62,7 +81,7 @@ const ChatBot = () => {
           >
             {/* DOSSIER HEADER: ANALYTIC GRID */}
             <div className="p-8 pb-0 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
                     <Shield size={22} />
@@ -80,21 +99,21 @@ const ChatBot = () => {
               </div>
 
               {/* QUICK INSIGHTS BAR */}
-              <div className="grid grid-cols-2 gap-4 pb-8">
+              <div className="grid grid-cols-4 gap-1.5 pb-4">
                 {[
-                  { icon: Briefcase, label: "Experience", value: "11 Years of IT" },
-                  { icon: Code, label: "Core Stack", value: "FE - 7 Years" },
-                  { icon: Code, label: "Core Skill", value: "Javascript - 7 Years" },
-                  { icon: MapPin, label: "Location", value: "Chennai, IN" },
-                  { icon: Activity, label: "Focus", value: "React/Nextjs" },
-                  { icon: Lightbulb, label: "Interest", value: "AI Accelerated Development" }
+                  { icon: Briefcase, label: "Exp", value: "11 Years" },
+                  { icon: Code, label: "Stack", value: "FE / JS" },
+                  { icon: Activity, label: "Focus", value: "React" },
+                  { icon: Lightbulb, label: "Interest", value: "AI Dev." }
                 ].map((stat, i) => (
-                  <div key={i} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-                    <div className="flex items-center gap-2 mb-1.5 opacity-30">
-                      <stat.icon size={12} className="text-white" />
-                      <span className="text-[8px] font-black uppercase tracking-widest">{stat.label}</span>
+                  <div key={i} className="bg-white/[0.02] border border-white/5 rounded-lg p-2 flex flex-col items-center text-center">
+                    <div className="flex items-center gap-1 mb-1 opacity-25">
+                      <stat.icon size={9} className="text-white" />
+                      <span className="text-[6px] font-black uppercase tracking-tighter">{stat.label}</span>
                     </div>
-                    <p className="text-xs font-bold text-white tracking-wide">{stat.value}</p>
+                    <p className="text-[9px] font-bold text-zinc-100 tracking-tight leading-tight w-full break-words">
+                      {stat.value}
+                    </p>
                   </div>
                 ))}
               </div>
