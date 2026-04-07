@@ -72,7 +72,7 @@ export async function POST(req) {
             content: m.content
           }))
         ],
-        model: "llama3.2:3b",
+        model: "llama3.2:1b",
         temperature: 0.6,
         max_tokens: 800,
         stream: true
