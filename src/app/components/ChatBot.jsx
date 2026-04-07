@@ -53,11 +53,30 @@ const ChatBot = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages }),
       });
+
+      // Special handling for Vercel's 30s Edge Gateway Timeout + Hugging Face Cold Starts
+      if (response.status === 504) {
+        setMessages(prev => [...prev, { role: 'assistant', content: "Booting up the AI Engine (this only happens on the first request)... Retrying..." }]);
+        
+        // Wait 5 seconds to let Hugging Face finish loading the model into RAM, then try ONE more time.
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: newMessages }),
+        });
+        
+        // Remove the temporary boot message if retry is successful
+        if (response.ok) {
+           setMessages(prev => prev.filter(m => !m.content.includes("Booting up the AI Engine")));
+        }
+      }
 
       if (!response.body) throw new Error('ReadableStream not supported.');
 
