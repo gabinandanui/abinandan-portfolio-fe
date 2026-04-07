@@ -20,10 +20,47 @@ const ChatBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // 'checking' | 'offline' | 'booting' | 'online'
+  const [aiStatus, setAiStatus] = useState('checking');
+
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     });
+  };
+
+  // 0. Check server status on initial load
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        setAiStatus(data.status);
+      } catch {
+        setAiStatus('offline');
+      }
+    };
+    checkStatus();
+  }, []);
+
+  const handleWakeUp = async (e) => {
+    if (e) e.stopPropagation();
+    setAiStatus('booting');
+    
+    // Send background wake knock
+    fetch('/api/wake').catch(() => {});
+    
+    // Poll the status every 5 seconds until it becomes 'online'
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.status === 'online') {
+          setAiStatus('online');
+          clearInterval(interval);
+        }
+      } catch {}
+    }, 5000);
   };
 
   // Handle initial open scroll
@@ -254,7 +291,7 @@ const ChatBot = () => {
                 />
                 <button
                   type="submit"
-                  disabled={isLoading || !input.trim()}
+                  disabled={isLoading || !input.trim() || aiStatus !== 'online'}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-500 disabled:opacity-20 transition-all shadow-[0_10px_30px_rgba(79,70,229,0.3)]"
                 >
                   <Send size={16} />
@@ -265,7 +302,8 @@ const ChatBot = () => {
                   <button
                     key={i}
                     onClick={() => handleSend(q)}
-                    className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] hover:text-white transition-colors"
+                    disabled={aiStatus !== 'online'}
+                    className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] hover:text-white transition-colors disabled:opacity-20"
                   >
                     {q}
                   </button>
@@ -291,14 +329,33 @@ const ChatBot = () => {
 
           <div className="relative bg-zinc-950 border border-white/10 rounded-full px-6 py-4 flex items-center gap-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-3 pr-6 border-r border-white/10">
-              <div className="relative">
-                <motion.div
-                  animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }}
-                  transition={{ repeat: Infinity, duration: 2.5 }}
-                  className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
-                />
-              </div>
-              <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em]">Online</span>
+              {aiStatus === 'checking' && <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.3em]">Checking...</span>}
+              
+              {aiStatus === 'offline' && (
+                <button 
+                  onClick={handleWakeUp}
+                  className="flex items-center gap-2 hover:bg-white/5 px-2 py-1 -ml-2 rounded transition-colors group/btn"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]" />
+                  <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.3em] group-hover/btn:text-white transition-colors">Wake AI Engine</span>
+                </button>
+              )}
+
+              {aiStatus === 'booting' && (
+                <>
+                  <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]" />
+                  <span className="text-[9px] font-black text-yellow-500 uppercase tracking-[0.3em] animate-pulse">Booting...</span>
+                </>
+              )}
+
+              {aiStatus === 'online' && (
+                <>
+                  <div className="relative">
+                    <motion.div animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }} transition={{ repeat: Infinity, duration: 2.5 }} className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                  </div>
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.3em]">Online</span>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-4">
