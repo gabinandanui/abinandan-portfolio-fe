@@ -3,6 +3,9 @@ import { resumeData } from "../../data/resume";
 import { getAllProjects } from "../../../services/drupalApi";
 import { getHomePage, getSections } from "../../../lib/drupal";
 
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
 export async function POST(req) {
   try {
     const { messages } = await req.json();
