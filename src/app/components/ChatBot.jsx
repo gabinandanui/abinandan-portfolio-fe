@@ -58,12 +58,60 @@ const ChatBot = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages }),
       });
-      const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content || data.error }]);
+
+      if (!response.body) throw new Error('ReadableStream not supported.');
+
+      // We append an empty assistant message first
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      // We DO NOT set isLoading(false) here. We wait until the first stream chunk!
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      
+      let assistantMessageContent = '';
+      let accumulated = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        accumulated += decoder.decode(value, { stream: true });
+        
+        // Split by SSE double newlines
+        const events = accumulated.split('\n\n');
+        accumulated = events.pop() || ''; // the last element might be incomplete
+        
+        for (const event of events) {
+          const trimmed = event.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          
+          const jsonStr = trimmed.replace('data: ', '').trim();
+          if (jsonStr === '[DONE]') continue;
+          
+          try {
+            const data = JSON.parse(jsonStr);
+            const content = data.choices[0]?.delta?.content;
+            if (content) {
+              if (isLoading) setIsLoading(false); // Clear loading spinner on first token
+              assistantMessageContent += content;
+            }
+          } catch (e) {
+            // Wait for next chunk to parse correctly
+          }
+        }
+        
+        // Update the last message
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].content = assistantMessageContent;
+          return updated;
+        });
+      }
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I'm having trouble connecting right now. Please try again later." }]);
-    } finally {
       setIsLoading(false);
+    } finally {
+      setIsLoading(false); // Ensure it's cleared if stream abruptly ends before finishing
     }
   };
 
