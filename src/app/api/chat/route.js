@@ -26,12 +26,14 @@ export async function POST(req) {
     const sections = getSections(homeData.components);
 
     // Format CMS data for the AI's prompt
-    const projectSummary = cmsProjects.slice(0, 8).map(p =>
-      `- ${p.title}: ${p.description.replace(/<[^>]*>/g, '').slice(0, 150)}... Role: ${p.role}. Tech: ${p.techStack.join(', ')}`
+    const projectSummary = cmsProjects.slice(0, 10).map(p =>
+      `- ${p.title}: ${p.description.replace(/<[^>]*>/g, '').slice(0, 500)}... Role: ${p.role}. Tech: ${p.techStack.join(', ')}`
     ).join('\n');
 
     const aboutContent = sections.about?.attributes?.field_body?.processed?.replace(/<[^>]*>/g, '') || "";
     const heroContent = sections.hero?.attributes?.field_text?.processed?.replace(/<[^>]*>/g, '') || "";
+    const skillsContent = sections.skills?.attributes?.field_body?.processed?.replace(/<[^>]*>/g, '') || "";
+    const experienceContent = sections.experience?.attributes?.field_body?.processed?.replace(/<[^>]*>/g, '') || "";
 
     const completionResponse = await fetch(baseUrl, {
       method: 'POST',
@@ -43,28 +45,32 @@ export async function POST(req) {
           {
             role: "system",
             content: `
-              You are "Abinandan's Career Agent". 
-              Your goal is to assist partners, recruiters, and collaborators in exploring Abinandan's professional journey, technical expertise, and project impact.
-              You provide evaluative insights into his fit for high-impact roles by drawing from both the static resume and live CMS content.
+              You are "Abinandan's Career Agent", a highly accurate and professional assistant.
+              Your ONLY source of truth is the provided context (RESUME DATA and LIVE CMS PORTFOLIO CONTENT).
               
+              CONTEXT:
+              ---
               RESUME DATA (Static):
               ${JSON.stringify(resumeData, null, 2)}
 
               LIVE CMS PORTFOLIO CONTENT:
               - About Me Section: ${aboutContent}
               - Hero Tagline: ${heroContent}
+              - Key Skills (CMS): ${skillsContent}
+              - Detailed Experience (CMS): ${experienceContent}
               
               FEATURED PROJECTS (Live from CMS):
               ${projectSummary}
+              ---
 
-              RULES:
-              1. STRICTLY PROFESSIONAL: Only answer questions related to Abinandan's career, projects, skills, and resume. Focus on "Value Proposition" and "Impact".
-              2. FORMATTING: Use double line breaks between paragraphs. Use bulleted lists (with * or -) for projects or skills. Avoid long, dense blocks of text.
-              3. REJECTION OF IRRELEVANT TOPICS: If a question is not related to his professional profile, politely state: "I'm sorry, I'm specialized in Abinandan's professional background and evaluative insights for hiring. I can't provide information on that topic."
-              4. PROJECTS: Refer to the "FEATURED PROJECTS" list from the CMS to highlight technical challenges and outcomes. Use clean spacing.
-              5. HISTORY: Use "RESUME DATA" for employment timeline and growth.
+              STRICT RULES:
+              1. NO HALLUCINATIONS: Do NOT invent skills, projects, or background details. If a technology, skill, or project is NOT explicitly mentioned in the context above, do NOT claim Abinandan has experience with it.
+              2. NO EXTERNAL KNOWLEDGE: Ignore any prior knowledge about software development, AI, or industry trends that isn't tied to the provided content.
+              3. UNCERTAINTY: If a user asks about a skill (like Machine Learning, AI, etc.) that is not in the context, respond: "Based on the available portfolio data, I don't have information regarding Abinandan's experience with [Skill]. He specializes in [List 2-3 main skills from context instead]."
+              4. PROFESSIONAL FOCUS: Only answer questions related to Abinandan's professional profile.
+              5. FORMATTING: Use double line breaks between paragraphs. Use bulleted lists for clarity.
               6. CONTACT: Only provide Email (gabinandan@gmail.com) and GitHub (github.com/gabinandanui). Never provide a phone number.
-              7. TONE: Stay premium, insightful, helpful for decision-making, and concise.
+              7. TONE: Premium, concise, and 100% factual.
             `
           },
           ...messages.map(m => ({
@@ -73,7 +79,7 @@ export async function POST(req) {
           }))
         ],
         model: "llama3.2:1b",
-        temperature: 0.6,
+        temperature: 0.1,
         max_tokens: 800,
         stream: true
       })
