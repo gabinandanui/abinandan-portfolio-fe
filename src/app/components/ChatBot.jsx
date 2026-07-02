@@ -20,6 +20,13 @@ const ChatBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const typingIntervalRef = useRef(null);
+  const activeResponseRef = useRef(null);
+
+  const scrollToActiveResponse = () => {
+    requestAnimationFrame(() => {
+      activeResponseRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   // 'checking' | 'offline' | 'booting' | 'online'
   const [aiStatus, setAiStatus] = useState('checking');
@@ -134,6 +141,7 @@ const ChatBot = () => {
       let rawIncomingText = '';
       let accumulated = '';
       let isStreamingFinished = false;
+      let hasScrolledToStart = false;
 
       // Clear any existing typing interval
       if (typingIntervalRef.current) {
@@ -144,8 +152,8 @@ const ChatBot = () => {
       typingIntervalRef.current = setInterval(() => {
         if (assistantMessageContent.length < rawIncomingText.length) {
           const diff = rawIncomingText.length - assistantMessageContent.length;
-          // Speed up if backlog is large, type at normal pace otherwise
-          const charsToType = diff > 80 ? 5 : (diff > 20 ? 2 : 1);
+          // Speed up slightly if backlog is massive, type at a comfortable, readable pace otherwise
+          const charsToType = diff > 150 ? 3 : (diff > 50 ? 2 : 1);
           
           assistantMessageContent += rawIncomingText.substring(
             assistantMessageContent.length,
@@ -160,14 +168,17 @@ const ChatBot = () => {
             return updated;
           });
           
-          scrollToBottom();
+          if (!hasScrolledToStart) {
+            hasScrolledToStart = true;
+            scrollToActiveResponse();
+          }
         } else if (isStreamingFinished) {
           if (typingIntervalRef.current) {
             clearInterval(typingIntervalRef.current);
             typingIntervalRef.current = null;
           }
         }
-      }, 15);
+      }, 30);
 
       while (true) {
         const { value, done } = await reader.read();
@@ -265,47 +276,54 @@ const ChatBot = () => {
 
             {/* TRANSCRIPT AREA */}
             <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar bg-gradient-to-b from-transparent to-indigo-500/5">
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`group flex flex-col gap-4 max-w-[92%] ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-[1px] ${m.role === 'user' ? 'bg-indigo-500/40' : 'bg-white/10'}`} />
-                      <p className="text-[9px] text-white/20 uppercase tracking-[0.4em] font-black group-hover:text-indigo-400 transition-colors">
-                        {m.role === 'user' ? 'Dialogue_Request' : 'Liaison_Response'}
-                      </p>
-                    </div>
+              {messages.map((m, i) => {
+                const isLatestQuery = (m.role === 'user' && i === messages.length - 2);
+                return (
+                  <div 
+                    key={i} 
+                    ref={isLatestQuery ? activeResponseRef : null}
+                    className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`group flex flex-col gap-4 max-w-[92%] ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-[1px] ${m.role === 'user' ? 'bg-indigo-500/40' : 'bg-white/10'}`} />
+                        <p className="text-[9px] text-white/20 uppercase tracking-[0.4em] font-black group-hover:text-indigo-400 transition-colors">
+                          {m.role === 'user' ? 'Dialogue_Request' : 'Liaison_Response'}
+                        </p>
+                      </div>
 
-                    <div className={`text-[14px] leading-loose whitespace-pre-wrap relative ${m.role === 'user'
-                      ? 'text-white border-r-2 border-indigo-500/40 pr-6 text-right'
-                      : 'text-zinc-300 border-l-2 border-white/10 pl-6 text-left'
-                      }`}>
-                      {m.role === 'assistant' ? (
-                        <div className="space-y-4">
-                          {m.content.split('\n').map((line, idx) => {
-                            if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+                      <div className={`text-[14px] leading-loose whitespace-pre-wrap relative ${m.role === 'user'
+                        ? 'text-white border-r-2 border-indigo-500/40 pr-6 text-right'
+                        : 'text-zinc-300 border-l-2 border-white/10 pl-6 text-left'
+                        }`}>
+                        {m.role === 'assistant' ? (
+                          <div className="space-y-4">
+                            {m.content.split('\n').map((line, idx) => {
+                              if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
+                                return (
+                                  <div key={idx} className="flex gap-3 pl-1">
+                                    <span className="text-indigo-500 mt-1.5">•</span>
+                                    <span dangerouslySetInnerHTML={{
+                                      __html: line.trim().substring(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                    }} />
+                                  </div>
+                                );
+                              }
                               return (
-                                <div key={idx} className="flex gap-3 pl-1">
-                                  <span className="text-indigo-500 mt-1.5">•</span>
-                                  <span dangerouslySetInnerHTML={{
-                                    __html: line.trim().substring(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                  }} />
-                                </div>
+                                <p key={idx} dangerouslySetInnerHTML={{
+                                  __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                }} />
                               );
-                            }
-                            return (
-                              <p key={idx} dangerouslySetInnerHTML={{
-                                __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                              }} />
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        m.content
-                      )}
+                            })}
+                          </div>
+                        ) : (
+                          m.content
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {isLoading && (
                 <div className="flex items-center gap-4 pl-6 border-l-2 border-white/10 py-2">
                   <Loader2 size={16} className="text-indigo-400 animate-spin" />
