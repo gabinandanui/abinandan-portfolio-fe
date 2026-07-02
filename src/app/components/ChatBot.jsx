@@ -19,6 +19,7 @@ const ChatBot = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const typingIntervalRef = useRef(null);
 
   // 'checking' | 'offline' | 'booting' | 'online'
   const [aiStatus, setAiStatus] = useState('checking');
@@ -41,6 +42,11 @@ const ChatBot = () => {
       }
     };
     checkStatus();
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
   }, []);
 
   const handleWakeUp = async (e) => {
@@ -125,7 +131,43 @@ const ChatBot = () => {
       const decoder = new TextDecoder('utf-8');
       
       let assistantMessageContent = '';
+      let rawIncomingText = '';
       let accumulated = '';
+      let isStreamingFinished = false;
+
+      // Clear any existing typing interval
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+
+      // Start the smooth typing loop
+      typingIntervalRef.current = setInterval(() => {
+        if (assistantMessageContent.length < rawIncomingText.length) {
+          const diff = rawIncomingText.length - assistantMessageContent.length;
+          // Speed up if backlog is large, type at normal pace otherwise
+          const charsToType = diff > 80 ? 5 : (diff > 20 ? 2 : 1);
+          
+          assistantMessageContent += rawIncomingText.substring(
+            assistantMessageContent.length,
+            assistantMessageContent.length + charsToType
+          );
+
+          setMessages(prev => {
+            const updated = [...prev];
+            if (updated.length > 0 && updated[updated.length - 1].role === 'assistant') {
+              updated[updated.length - 1].content = assistantMessageContent;
+            }
+            return updated;
+          });
+          
+          scrollToBottom();
+        } else if (isStreamingFinished) {
+          if (typingIntervalRef.current) {
+            clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
+          }
+        }
+      }, 15);
 
       while (true) {
         const { value, done } = await reader.read();
@@ -149,21 +191,19 @@ const ChatBot = () => {
             const content = data.choices[0]?.delta?.content;
             if (content) {
               if (isLoading) setIsLoading(false); // Clear loading spinner on first token
-              assistantMessageContent += content;
+              rawIncomingText += content;
             }
           } catch (e) {
             // Wait for next chunk to parse correctly
           }
         }
-        
-        // Update the last message
-        setMessages(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1].content = assistantMessageContent;
-          return updated;
-        });
       }
+      isStreamingFinished = true;
     } catch (error) {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
       setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I'm having trouble connecting right now. Please try again later." }]);
       setIsLoading(false);
     } finally {
