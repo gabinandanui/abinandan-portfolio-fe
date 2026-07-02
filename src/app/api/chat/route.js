@@ -9,12 +9,28 @@ export const dynamic = 'force-dynamic';
 export async function POST(req) {
   try {
     const { messages } = await req.json();
-    const baseUrl = process.env.OLLAMA_BASE_URL;
+    const apiKey = process.env.GROQ_API_KEY;
 
-    if (!baseUrl) {
-      return new Response(JSON.stringify({
-        content: "I'm Ollama AI, and I'm ready to help! Abinandan just needs to configure the OLLAMA_BASE_URL in his project settings."
-      }), { headers: { 'Content-Type': 'application/json' } });
+    if (!apiKey || apiKey === 'your_groq_api_key_here') {
+      const encoder = new TextEncoder();
+      const message = "I'm Groq AI, and I'm ready to help! Abinandan just needs to configure the GROQ_API_KEY in his project settings.";
+      const stream = new ReadableStream({
+        start(controller) {
+          const payload = {
+            choices: [{ delta: { content: message } }]
+          };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      });
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        }
+      });
     }
 
     // Fetch dynamic CMS data to keep the AI updated with the latest site content
@@ -35,10 +51,11 @@ export async function POST(req) {
     const skillsContent = sections.skills?.attributes?.field_body?.processed?.replace(/<[^>]*>/g, '') || "";
     const experienceContent = sections.experience?.attributes?.field_body?.processed?.replace(/<[^>]*>/g, '') || "";
 
-    const completionResponse = await fetch(baseUrl, {
+    const completionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         messages: [
@@ -78,12 +95,18 @@ export async function POST(req) {
             content: m.content
           }))
         ],
-        model: "llama3.2:1b",
+        model: "llama-3.3-70b-versatile",
         temperature: 0.1,
         max_tokens: 800,
         stream: true
       })
     });
+
+    if (!completionResponse.ok) {
+      const errorText = await completionResponse.text();
+      console.error("Groq API Error:", errorText);
+      throw new Error(`Groq API returned status ${completionResponse.status}`);
+    }
 
     // Pipe the OpenAI-compatible stream directly to the client
     return new Response(completionResponse.body, {
